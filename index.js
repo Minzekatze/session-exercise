@@ -3,7 +3,9 @@ import session from "express-session";
 import bodyParser from "body-parser";
 
 const app = express();
-const PORT = 7700;
+const PORT = process.env.PORT || 9000;
+const store = new session.MemoryStore();
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json()); // to support JSON-encoded bodies
@@ -21,6 +23,8 @@ app.use(
     secret: "mysecret",
     cookie: { maxAge: 300000 },
     saveUninitialized: true,
+    resave: true,
+    store,
   })
 );
 
@@ -44,9 +48,12 @@ app.get("/login", (req, res) => {
 app.post("/connect", (req, res) => {
   console.log(`second:${req.sessionID}`);
   const { login, password } = req.body;
+  console.log(req.session);
+  console.log(store);
 
   if (password === "doe" && login === "john") {
     req.session.isConnected = true;
+    req.session.user = { login, password };
     return res.redirect("/admin");
   } else {
     return res.redirect("/login");
@@ -55,6 +62,8 @@ app.post("/connect", (req, res) => {
 
 app.get("/admin", (req, res) => {
   if (req.session.isConnected) {
+    console.log(req.session);
+    console.log(store);
     res.send("Successfully loged in!");
   } else {
     return res.redirect("/login");
