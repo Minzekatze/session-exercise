@@ -1,6 +1,7 @@
 import express from "express";
 import session from "express-session";
 import bodyParser from "body-parser";
+import { Router } from "express";
 
 const app = express();
 const PORT = process.env.PORT || 9000;
@@ -16,8 +17,6 @@ app.use(
   })
 );
 
-app.set("view engine", "ejs");
-
 app.use(
   session({
     secret: "mysecret",
@@ -28,24 +27,29 @@ app.use(
   })
 );
 
-app.get("/set/:name", (req, res) => {
+const sessionRoute = Router();
+app.use("/session", sessionRoute);
+
+app.set("view engine", "ejs");
+
+sessionRoute.get("/set/:name", (req, res) => {
   req.session.user = { name: req.params.name };
   res.json({ message: "Logged in, now you can access the page" });
 });
 
-app.get("/getname", (req, res) => {
+sessionRoute.get("/getname", (req, res) => {
   if (!req.session.user?.name) {
     return res.status(403).json({ error: "please log in" });
   }
   return res.json({ message: `Hello ${req.session.user.name} welcome back` });
 });
 
-app.get("/login", (req, res) => {
+sessionRoute.get("/login", (req, res) => {
   console.log(`first:${req.sessionID}`);
   return res.render("index");
 });
 
-app.post("/connect", (req, res) => {
+sessionRoute.post("/connect", (req, res) => {
   console.log(`second:${req.sessionID}`);
   const { login, password } = req.body;
   console.log(req.session);
@@ -56,21 +60,21 @@ app.post("/connect", (req, res) => {
     req.session.user = { login, password };
     return res.redirect("/admin");
   } else {
-    return res.redirect("/login");
+    return res.redirect("/session/login");
   }
 });
 
-app.get("/admin", (req, res) => {
+sessionRoute.get("/admin", (req, res) => {
   if (req.session.isConnected) {
     console.log(req.session);
     console.log(store);
     res.send("Successfully loged in!");
   } else {
-    return res.redirect("/login");
+    return res.redirect("/session/login");
   }
 });
 
-app.get("/logout", (req, res) => {
+sessionRoute.get("/logout", (req, res) => {
   req.session.destroy((error) => {
     if (error) return res.json(error.message);
   });
