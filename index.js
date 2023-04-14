@@ -2,6 +2,13 @@ import express from "express";
 import session from "express-session";
 import bodyParser from "body-parser";
 import { Router } from "express";
+import bcrypt from "bcrypt";
+import pkg from "pg";
+const { Pool } = pkg;
+
+const pool = new Pool({
+  connectionString: process.env.CONNECTION_STRING,
+});
 
 const app = express();
 const PORT = process.env.PORT || 9000;
@@ -45,20 +52,24 @@ sessionRoute.get("/getname", (req, res) => {
 });
 
 sessionRoute.get("/login", (req, res) => {
-  console.log(`first:${req.sessionID}`);
+  // console.log(`first:${req.sessionID}`);
   return res.render("index");
 });
 
-sessionRoute.post("/connect", (req, res) => {
-  console.log(`second:${req.sessionID}`);
+sessionRoute.post("/connect", async (req, res) => {
+  // console.log(`second:${req.sessionID}`);
   const { login, password } = req.body;
-  console.log(req.session);
-  console.log(store);
+  // console.log(req.session);
+  // console.log(store);
 
-  if (password === "doe" && login === "john") {
+  const myQuery = "SELECT * FROM entries WHERE login = $1 AND password = $2";
+  const { rows: entry } = await pool.query(myQuery, [login, password]);
+  console.log(entry);
+
+  if (entry.length !== 0) {
     req.session.isConnected = true;
     req.session.user = { login, password };
-    return res.redirect("/admin");
+    return res.redirect("/session/admin");
   } else {
     return res.redirect("/session/login");
   }
@@ -66,8 +77,8 @@ sessionRoute.post("/connect", (req, res) => {
 
 sessionRoute.get("/admin", (req, res) => {
   if (req.session.isConnected) {
-    console.log(req.session);
-    console.log(store);
+    // console.log(req.session);
+    // console.log(store);
     res.send("Successfully loged in!");
   } else {
     return res.redirect("/session/login");
