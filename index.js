@@ -51,6 +51,34 @@ sessionRoute.get("/getname", (req, res) => {
   return res.json({ message: `Hello ${req.session.user.name} welcome back` });
 });
 
+sessionRoute.get("/signup", (req, res) => {
+  return res.render("index2");
+});
+
+sessionRoute.post("/signup", async (req, res) => {
+  try {
+    const { login, password } = req.body;
+
+    const myQuery = "SELECT * FROM entries WHERE login = $1";
+    const { rows: entry } = await pool.query(myQuery, [login]);
+    console.log(entry);
+
+    if (entry.length === 0) {
+      const hash = await bcrypt.hash(password, 5);
+      const myQuery =
+        "INSERT INTO entries (login, password) VALUES ($1, $2) RETURNING *";
+      const { rows: newEntry } = await pool.query(myQuery, [login, hash]);
+      console.log(newEntry);
+      return res.status(201).send("user successfully created");
+    } else {
+      return res.send("user already exists");
+    }
+  } catch (e) {
+    console.log(e);
+    res.json({ error: e.message });
+  }
+});
+
 sessionRoute.get("/login", (req, res) => {
   // console.log(`first:${req.sessionID}`);
   return res.render("index");
@@ -58,20 +86,26 @@ sessionRoute.get("/login", (req, res) => {
 
 sessionRoute.post("/connect", async (req, res) => {
   // console.log(`second:${req.sessionID}`);
-  const { login, password } = req.body;
-  // console.log(req.session);
-  // console.log(store);
+  try {
+    const { login, password } = req.body;
+    // console.log(req.session);
+    // console.log(store);
 
-  const myQuery = "SELECT * FROM entries WHERE login = $1 AND password = $2";
-  const { rows: entry } = await pool.query(myQuery, [login, password]);
-  console.log(entry);
+    const myQuery = "SELECT * FROM entries WHERE login = $1";
+    const { rows: entry } = await pool.query(myQuery, [login]);
 
-  if (entry.length !== 0) {
-    req.session.isConnected = true;
-    req.session.user = { login, password };
-    return res.redirect("/session/admin");
-  } else {
-    return res.redirect("/session/login");
+    if (entry.length !== 0) {
+      const pwdMatch = await bcrypt.compare(password, entry[0].password);
+      if (!pwdMatch) return res.redirect("/session/login");
+      req.session.isConnected = true;
+      req.session.user = { login, password };
+      return res.redirect("/session/admin");
+    } else {
+      return res.redirect("/session/login");
+    }
+  } catch (e) {
+    console.log(e.message);
+    res.json({ error: e.message });
   }
 });
 
